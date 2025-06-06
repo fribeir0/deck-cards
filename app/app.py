@@ -1,14 +1,17 @@
 import requests
 import time
 from flask import Flask
+from prometheus_flask_exporter import PrometheusMetrics
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
 
 @app.route("/", methods=["GET"])
 def index():
     return cards()
 
 @app.route("/cards", methods=["GET"])
+@metrics.counter("cards-requests","Numero de cards solicitados")
 def cards () :
     response = requests.get("https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count=1")
     cartas = response.json()
@@ -27,10 +30,19 @@ def cards () :
 
 
 @app.route ("/latency/<int:ms>", methods=["GET"])
+@metrics.gauge("latency", "latencia em milisegundos (simulação)")
 def latency(ms:int) :
     print (f"aguardando: {ms}")
     time.sleep(ms)
-    return dict(message=f"Esta pagina ira recarregar")
+    return dict(message=f"Esta pagina teve uma latencia de {ms} ms")
+@app.route ("/404", methods=["GET"])
+def erro404 () :
+    response = requests.get("http://google.com.br")
+    return dict (message="ERROR", status_code=response.status_code), 404
+@app.route ("/health", methods=["GET"])
+def health() :
+    response = requests.get("http://google.com.br")
+    return dict (message="SUCCESS", status_code=response.status_code)
 
 if __name__ == "__main__" :
     app.run(host="127.0.0.1",port="9000")
